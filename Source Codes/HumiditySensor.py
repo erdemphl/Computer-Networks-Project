@@ -2,6 +2,7 @@ import socket
 import random
 import threading
 import time
+from datetime import datetime
 
 class HumiditySensor:
 
@@ -25,21 +26,22 @@ class HumiditySensor:
         if int(humidity[:-1]) <= 80:
             return
         format = "UTF-8"
-        message = humidity.encode(format)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        message = humidity + f"[{timestamp}]"
+        message = message.encode(format)
         sensor_socket.sendto(message, gateway_address)
-        print("[SENT] " + humidity)
-        rcv_msg, addr = sensor_socket.recvfrom(2048)
-        print("[RECEIVED] " + rcv_msg.decode(format))
+        print(f"[SENT]\t[{timestamp}]\t{humidity}")
+
 
     def send_alive_to_gateway(self, sensor_socket, gateway_address):
         format = "UTF-8"
         alive = "ALIVE"
-        alive_message = alive.encode(format)
         while True:
-            sensor_socket.sendto(alive_message, gateway_address)
-            print("[SENT] " + alive)
-            rcv_msg, addr = sensor_socket.recvfrom(2048)
-            print("[RECEIVED] " + rcv_msg.decode(format))
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            message = f"{alive}[{timestamp}]"
+            message = message.encode(format)
+            sensor_socket.sendto(message, gateway_address)
+            print(f"[SENT]\t[{timestamp}]\t{alive}")
             time.sleep(3)
 
     def run(self):

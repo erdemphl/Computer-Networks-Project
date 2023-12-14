@@ -1,5 +1,7 @@
+import datetime
 import socket
 import threading
+from datetime import datetime
 
 gateway_host = socket.gethostbyname(socket.gethostname())
 
@@ -14,9 +16,8 @@ server_address = (gateway_host, server_port)
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.connect(server_address)
 
-
-
 format = "UTF-8"
+
 
 def tcp_temperature_connection():
     gateway_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -29,30 +30,63 @@ def udp_humidity_connection():
     gateway_socket.bind(gateway_udp_address)
     return gateway_socket
 
+def fetch_msg_timestamp(msg):
+    index = msg.index("[")
+    message = msg[:index]
+    timestamp = msg[index:]
+    return message, timestamp
 
 def handle_temperature_sensor(connection, address):
     print(f"[NEW CONNECTION] {address} connected.")
-
+    connection.settimeout(3)
     connected = True
     while connected:
-        msg = connection.recv(8).decode(format)
-        print(f"[RECEIVED] [{address}] {msg}")
-        connection.send("Message Received.".encode(format))
-        print(f"[SENT] [{address}] Message Received.")
+        try:
+            msg = connection.recv(2048).decode(format)
+        except socket.timeout:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            sensor_off = "TEMP SENSOR OFF"
+            msg = f"{sensor_off}[{timestamp}]"
+            message = msg.encode(format)
+            server_socket.send(message)
+            print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t{sensor_off}")
+            rcv_msg = server_socket.recv(2048).decode(format)
+            print(f"[RECEIVED]\t[{server_address}] \t{space}\t{rcv_msg}")
+            connected = False
+            continue
+        except ConnectionResetError:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            sensor_off = "TEMP SENSOR OFF"
+            msg = f"{sensor_off}[{timestamp}]"
+            message = msg.encode(format)
+            server_socket.send(message)
+            print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t{sensor_off}")
+            rcv_msg = server_socket.recv(2048).decode(format)
+            print(f"[RECEIVED]\t[{server_address}] \t{space}\t{rcv_msg}")
+            connected = False
+            continue
+
+        message, timestamp = fetch_msg_timestamp(msg)
+        print(f"[RECEIVED]\t[{address}]\t{timestamp}\t{message}")
+        space = " " * (len(timestamp) + 1)
         server_socket.send(msg.encode(format))
-        print(f"[SENT] [{server_address}] {msg}")
+        print(f"[SENT]    \t[{server_address}] \t{timestamp}\t{message}")
+        rcv_msg = server_socket.recv(2048).decode(format)
+        print(f"[RECEIVED]\t[{server_address}] \t{space}\t{rcv_msg}")
 
     connection.close()
 
 
-def handle_humidity_sensor(connection, msg, addr):
-    msg = msg.decode(format)
-    print(f"[RECEIVED] [{addr}] {msg}")
-    connection.sendto("Message Received.".encode(format), addr)
-    print(f"[SENT] [{addr}] Message Received.")
-    server_socket.send(msg.encode(format))
-    print(f"[SENT] [{server_address}] {msg}")
 
+def handle_humidity_sensor(msg, address):
+    msg = msg.decode(format)
+    message, timestamp = fetch_msg_timestamp(msg)
+    print(f"[RECEIVED]\t[{address}]\t{timestamp}\t{message}")
+    space = " " * (len(timestamp) + 1)
+    server_socket.send(msg.encode(format))
+    print(f"[SENT]    \t[{server_address}] \t{timestamp}\t{message}")
+    rcv_msg = server_socket.recv(2048).decode(format)
+    print(f"[RECEIVED]\t[{server_address}] \t{space}\t{rcv_msg}")
 
 def tcp_start():
     gateway_socket = tcp_temperature_connection()
@@ -61,25 +95,14 @@ def tcp_start():
         connection, address = gateway_socket.accept()
         thread = threading.Thread(target=handle_temperature_sensor, args=(connection, address))
         thread.start()
-        print(f"[ACTIVE TCP CONNECTIONS] {threading.activeCount() - 3}")
 
 
 def udp_start():
     gateway_socket = udp_humidity_connection()
     while True:
         msg, addr = gateway_socket.recvfrom(1024)
-        thread = threading.Thread(target=handle_humidity_sensor, args=(gateway_socket, msg, addr))
+        thread = threading.Thread(target=handle_humidity_sensor, args=(msg, addr))
         thread.start()
-
-
-#def send(data):
-#    data = data.encode(format)
-#    data_length = len(data)
-#    send_length = str(data_length).encode(format)
-#    send_length += b' ' * (header - len(send_length))
-#    client.send(send_length)
-#    client.send(data)
-#    print(client.recv(2048).decode(FORMAT))
 
 
 def start():
