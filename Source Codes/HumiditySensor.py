@@ -2,19 +2,18 @@ import socket
 import random
 import threading
 import time
+from datetime import datetime
 
 class HumiditySensor:
 
     def __init__(self):
         self.current_humidity = None
 
-    def connect_to_gateway(self):
+    def connect_to_gateway(self, gateway_port):
         gateway_host = socket.gethostbyname(socket.gethostname())
-        gateway_port = 4040
         gateway_address = (gateway_host, gateway_port)
 
         sensor_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
         return sensor_socket, gateway_address
 
     def produce_random_humidity(self):
@@ -25,25 +24,36 @@ class HumiditySensor:
         if int(humidity[:-1]) <= 80:
             return
         format = "UTF-8"
-        message = humidity.encode(format)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        message = humidity + f"[{timestamp}]"
+        message = message.encode(format)
         sensor_socket.sendto(message, gateway_address)
-        print("[SENT] " + humidity)
-        rcv_msg, addr = sensor_socket.recvfrom(2048)
-        print("[RECEIVED] " + rcv_msg.decode(format))
+        print(f"[SENT]\t[{timestamp}]\t{humidity}")
+
+
+    def request_port(self):
+        format = "UTF-8"
+        port = 4040
+        sensor_socket, gateway_address = self.connect_to_gateway(port)
+        sensor_socket.sendto("".encode(format), gateway_address)
+        new_port = int(sensor_socket.recvfrom(1024)[0].decode(format))
+        sensor_socket.close()
+        return new_port
 
     def send_alive_to_gateway(self, sensor_socket, gateway_address):
         format = "UTF-8"
         alive = "ALIVE"
-        alive_message = alive.encode(format)
         while True:
-            sensor_socket.sendto(alive_message, gateway_address)
-            print("[SENT] " + alive)
-            rcv_msg, addr = sensor_socket.recvfrom(2048)
-            print("[RECEIVED] " + rcv_msg.decode(format))
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            message = f"{alive}[{timestamp}]"
+            message = message.encode(format)
+            sensor_socket.sendto(message, gateway_address)
+            print(f"[SENT]\t[{timestamp}]\t{alive}")
             time.sleep(3)
 
     def run(self):
-        sensor_socket, gateway_address = self.connect_to_gateway()
+        port = self.request_port()
+        sensor_socket, gateway_address = self.connect_to_gateway(port)
         thread = threading.Thread(target=self.send_alive_to_gateway, args=(sensor_socket, gateway_address))
         thread.start()
         while True:
