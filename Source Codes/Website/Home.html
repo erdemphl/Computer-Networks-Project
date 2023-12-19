@@ -1,0 +1,55 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temperature and Humidity</title>
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+            background-image: url('images/backg.jpg'); /* Specify the correct path to your image */
+            background-size: cover; /* Cover the entire background */
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            margin: 10px;
+            background-color: #3498db; /* Button background color */
+            color: #fff; /* Button text color */
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s; /* Smooth transition for hover effect */
+        }
+
+        button:hover {
+            background-color: #2980b9; /* Change background color on hover */
+        }
+    </style>
+</head>
+<body>
+
+<button id="temperatureButton" onclick="redirectTo('temperature')">Temperature</button>
+<button id="humidityButton" onclick="redirectTo('humidity')">Humidity</button>
+
+<script>
+    function redirectTo(page) {
+        // Define the base URL
+        var baseUrl = 'http://10.125.19.205:8080/';
+
+        // Construct the full URL based on the selected page
+        var fullUrl = baseUrl + page;
+
+        // Redirect to the constructed URL
+        window.location.href = fullUrl;
+    }
+</script>
+
+</body>
+</html>
