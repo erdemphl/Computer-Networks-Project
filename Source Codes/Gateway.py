@@ -8,7 +8,7 @@ gateway_host = socket.gethostbyname(socket.gethostname())
 
 gateway_tcp_port = 5050
 gateway_udp_port = 4040
-server_port = 8080
+server_port = 7070
 
 gateway_tcp_address = (gateway_host, gateway_tcp_port)
 gateway_udp_address = (gateway_host, gateway_udp_port)
@@ -35,9 +35,10 @@ def udp_humidity_connection(gateway_udp_address):
 
 def fetch_msg_timestamp(msg):
     index = msg.index("[")
-    message = msg[:index]
+    sensor_type = msg[0]
+    message = msg[1:index]
     timestamp = msg[index:]
-    return message, timestamp
+    return sensor_type, message, timestamp
 
 
 def handle_temperature_sensor(connection, address):
@@ -51,7 +52,8 @@ def handle_temperature_sensor(connection, address):
             msg = connection.recv(2048).decode(format)
             if len(msg) == 0:
                 raise ConnectionResetError
-            message, timestamp = fetch_msg_timestamp(msg)
+            sensor_type, message, timestamp = fetch_msg_timestamp(msg)
+            msg = f"{msg[0]}[{address}]{msg[1:]}"
             print(f"[RECEIVED]\t[{address}]\t{timestamp}\t{message}")
             space = " " * (len(timestamp) + 1)
             server_socket.send(msg.encode(format))
@@ -62,7 +64,7 @@ def handle_temperature_sensor(connection, address):
     except socket.timeout:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         space = " " * (len(timestamp) + 1)
-        msg = f"{sensor_off}[{timestamp}]"
+        msg = "t" + f"[{address}]" + f"{sensor_off}[{timestamp}]"
         message = msg.encode(format)
         server_socket.send(message)
         print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t{sensor_off}")
@@ -72,7 +74,7 @@ def handle_temperature_sensor(connection, address):
     except ConnectionResetError:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         space = " " * (len(timestamp) + 1)
-        msg = f"{sensor_closed}[{timestamp}]"
+        msg = "t" + f"[{address}]" + f"{sensor_closed}[{timestamp}]"
         message = msg.encode(format)
         server_socket.send(message)
         print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t{sensor_closed}")  # if the connection is closed by user, it is directly send to the server.
@@ -82,7 +84,8 @@ def handle_temperature_sensor(connection, address):
 
 def handle_humidity_sensor(msg, address):
     msg = msg.decode(format)
-    message, timestamp = fetch_msg_timestamp(msg)
+    sensor_type, message, timestamp = fetch_msg_timestamp(msg)
+    msg = f"{msg[0]}[{address}]{msg[1:]}"
     print(f"[RECEIVED]\t[{address}]\t{timestamp}\t{message}")
     space = " " * (len(timestamp) + 1)
     server_socket.send(msg.encode(format))
@@ -119,9 +122,9 @@ def listen_new_udp_port(addr):
 
 
 def send_off_to_server(addr):
-    msg = f"[{addr}] HUMIDITY SENSOR OFF"
+    msg = "HUMIDITY SENSOR OFF"
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    send_msg = f"{msg}[{timestamp}]"
+    send_msg = "h" + f"[{addr}]" + f"{msg}[{timestamp}]"
     space = " " * (len(timestamp) + 1)
     server_socket.send(send_msg.encode(format))
     print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t{msg}")

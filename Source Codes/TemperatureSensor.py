@@ -26,7 +26,7 @@ class TemperatureSensor:
     def send_to_gateway(self, sensor_socket, temperature):
         format = "UTF-8"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        message = temperature + f"[{timestamp}]"
+        message = "t" + temperature + f"[{timestamp}]"
         message = message.encode(format)
         sensor_socket.send(message)
         print(f"[SENT]\t[{timestamp}]\t{temperature}")

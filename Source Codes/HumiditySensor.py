@@ -25,7 +25,7 @@ class HumiditySensor:
             return
         format = "UTF-8"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        message = humidity + f"[{timestamp}]"
+        message = "h" + humidity + f"[{timestamp}]"
         message = message.encode(format)
         sensor_socket.sendto(message, gateway_address)
         print(f"[SENT]\t[{timestamp}]\t{humidity}")
@@ -45,7 +45,7 @@ class HumiditySensor:
         alive = "ALIVE"
         while True:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            message = f"{alive}[{timestamp}]"
+            message = "h" + f"{alive}[{timestamp}]"
             message = message.encode(format)
             sensor_socket.sendto(message, gateway_address)
             print(f"[SENT]\t[{timestamp}]\t{alive}")
