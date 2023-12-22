@@ -15,11 +15,26 @@ gateway_udp_address = (gateway_host, gateway_udp_port)
 server_address = (gateway_host, server_port)
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server_socket.connect(server_address)
 
 format = "UTF-8"
 
-taken_udp_ports = [gateway_tcp_port]
+taken_udp_ports = []
+
+
+def try_to_connect_server(server_socket):
+    while True:
+        try:
+            server_socket.connect(server_address)
+            break
+        except ConnectionRefusedError:
+            pass
+
+def server_connection():
+    try:
+        server_socket.connect(server_address)
+    except ConnectionRefusedError:
+        listen_server_thread = threading.Thread(target=try_to_connect_server, args=(server_socket, ))
+        listen_server_thread.start()
 
 
 def tcp_temperature_connection():
@@ -55,7 +70,11 @@ def handle_temperature_sensor(connection, address):
             msg = f"{msg[0]}[{address}]{msg[1:]}"
             print(f"[RECEIVED]\t[{address}]\t{timestamp}\t{message}")
             space = " " * (len(timestamp) + 1)
-            server_socket.send(msg.encode(format))
+            try:
+                server_socket.send(msg.encode(format))
+            except OSError:
+                print(f"[SENT]    \t[{server_address}] \t{timestamp}\t{message}")
+                continue
             print(f"[SENT]    \t[{server_address}] \t{timestamp}\t{message}")
             rcv_msg = server_socket.recv(2048).decode(format)
             print(f"[RECEIVED]\t[{server_address}] \t{space}\t{rcv_msg}")
@@ -65,8 +84,13 @@ def handle_temperature_sensor(connection, address):
         space = " " * (len(timestamp) + 1)
         msg = "t" + f"[{address}]" + f"{sensor_off}[{timestamp}]"
         message = msg.encode(format)
-        server_socket.send(message)
-        print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t{sensor_off}")
+        try:
+            server_socket.send(message)
+        except OSError:
+            print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t[{address}] {sensor_off}")
+            connection.close()
+            return
+        print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t[{address}] {sensor_off}")
         rcv_msg = server_socket.recv(2048).decode(format)
         print(f"[RECEIVED]\t[{server_address}] \t{space}\t{rcv_msg}")  # sensor off message will be sent to the server after three seconds.
         connection.close()
@@ -77,8 +101,13 @@ def handle_temperature_sensor(connection, address):
         space = " " * (len(timestamp) + 1)
         msg = "t" + f"[{address}]" + f"{sensor_off}[{timestamp}]"
         message = msg.encode(format)
-        server_socket.send(message)
-        print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t{sensor_off}")  # if the connection is closed by user, it is directly send to the server.
+        try:
+            server_socket.send(message)
+        except OSError:
+            print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t[{address}] {sensor_off}")  # if the connection is closed by user, it is directly send to the server.
+            connection.close()
+            return
+        print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t[{address}] {sensor_off}")  # if the connection is closed by user, it is directly send to the server.
         rcv_msg = server_socket.recv(2048).decode(format)
         print(f"[RECEIVED]\t[{server_address}] \t{space}\t{rcv_msg}")
         connection.close()
@@ -90,9 +119,16 @@ def handle_humidity_sensor(msg, address):
     msg = f"{msg[0]}[{address}]{msg[1:]}"
     print(f"[RECEIVED]\t[{address}]\t{timestamp}\t{message}")
     space = " " * (len(timestamp) + 1)
-    server_socket.send(msg.encode(format))
+    try:
+        server_socket.send(msg.encode(format))
+    except OSError:
+        print(f"[SENT]    \t[{server_address}] \t{timestamp}\t{message}")
+        return
     print(f"[SENT]    \t[{server_address}] \t{timestamp}\t{message}")
-    rcv_msg = server_socket.recv(2048).decode(format)
+    try:
+        rcv_msg = server_socket.recv(2048).decode(format)
+    except ConnectionResetError:
+        return
     print(f"[RECEIVED]\t[{server_address}] \t{space}\t{rcv_msg}")
 
 def genereate_unique_udp_port():
@@ -118,18 +154,23 @@ def listen_new_udp_port(addr):
             thread = threading.Thread(target=handle_humidity_sensor, args=(msg, addr))
             thread.start()
     except socket.timeout:
-        send_off_to_server(addr)
+        send_off_to_server(addr, new_gateway_socket)
         taken_udp_ports.remove(new_port)
 
 
 
-def send_off_to_server(addr):
+def send_off_to_server(addr, new_gateway_socket):
     msg = "HUMIDITY SENSOR OFF"
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     send_msg = "h" + f"[{addr}]" + f"{msg}[{timestamp}]"
     space = " " * (len(timestamp) + 1)
-    server_socket.send(send_msg.encode(format))
-    print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t{msg}")
+    try:
+        server_socket.send(send_msg.encode(format))
+    except OSError:
+        print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t[{addr}] {msg}")
+        new_gateway_socket.close()
+        return
+    print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t[{addr}] {msg}")
     rcv_msg = server_socket.recv(2048).decode(format)
     print(f"[RECEIVED]\t[{server_address}] \t{space}\t{rcv_msg}")
 
@@ -153,6 +194,7 @@ def udp_start():
 
 
 def start():
+    server_connection()
     thread_tcp_sensor = threading.Thread(target=tcp_start)
     thread_udp_sensor = threading.Thread(target=udp_start)
     thread_tcp_sensor.start()

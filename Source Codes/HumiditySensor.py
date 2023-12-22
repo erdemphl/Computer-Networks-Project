@@ -34,9 +34,14 @@ class HumiditySensor:
     def request_port(self):
         format = "UTF-8"
         port = 4040
+        new_port = -1
         sensor_socket, gateway_address = self.connect_to_gateway(port)
         sensor_socket.sendto("".encode(format), gateway_address)
-        new_port = int(sensor_socket.recvfrom(1024)[0].decode(format))
+        try:
+            new_port = int(sensor_socket.recvfrom(1024)[0].decode(format))
+        except ConnectionResetError:
+            print("GATEWAY IS OFF")
+            exit(0)
         sensor_socket.close()
         return new_port
 

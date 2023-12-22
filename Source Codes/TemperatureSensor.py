@@ -16,8 +16,11 @@ class TemperatureSensor:
         gateway_address = (gateway_host, gateway_port)
 
         sensor_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sensor_socket.connect(gateway_address)
-
+        try:
+            sensor_socket.connect(gateway_address)
+        except ConnectionRefusedError:
+            print("GATEWAY IS OFF")
+            exit(0)
         return sensor_socket
 
     def produce_random_temperature(self):
@@ -28,7 +31,10 @@ class TemperatureSensor:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         message = "t" + temperature + f"[{timestamp}]"
         message = message.encode(format)
-        sensor_socket.send(message)
+        try:
+            sensor_socket.send(message)
+        except ConnectionResetError:
+            pass
         print(f"[SENT]\t[{timestamp}]\t{temperature}")
 
 

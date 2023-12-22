@@ -1,6 +1,5 @@
 import socket
 import threading
-import os
 
 
 server_host = socket.gethostbyname(socket.gethostname())
@@ -45,10 +44,14 @@ def employee(msg, conn, addr):
     print(f"[SENT]    \t[{addr}]\t{space}\tMessage Received.")
 
 
-def handle_gateway(conn, addr):
+def handle_gateway(gateway_socket):
+    conn, addr = gateway_socket.accept()
     connected = True
     while connected:
-        msg = conn.recv(2048).decode(format)
+        try:
+            msg = conn.recv(2048).decode(format)
+        except ConnectionResetError:
+            break
         employee_thread = threading.Thread(target=employee, args=(msg, conn, addr))
         employee_thread.start()
     conn.close()
@@ -131,8 +134,7 @@ def handle_client(conn, addr):
 def start():
     gateway_socket.listen()
     print(f"[LISTENING] Server is listening on {server_host}:{gateway_port} for gateway connection")
-    conn, addr = gateway_socket.accept()
-    thread = threading.Thread(target=handle_gateway, args=(conn, addr))
+    thread = threading.Thread(target=handle_gateway, args=(gateway_socket, ))
     thread.start()
 
     server_socket.listen()
