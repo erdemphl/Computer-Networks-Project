@@ -40,6 +40,7 @@ class TemperatureSensor:
             try:
                 time.sleep(1)
             except KeyboardInterrupt:
+                sensor_socket.close()
                 break
 
 

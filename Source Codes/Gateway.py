@@ -45,7 +45,6 @@ def handle_temperature_sensor(connection, address):
     print(f"[NEW TEMPERATURE SENSOR CONNECTION] {address} connected.")
     connection.settimeout(3)
     sensor_off = "TEMP SENSOR OFF"
-    sensor_closed = "TEMP SENSOR CLOSED BY USER"
     connected = True
     try:
         while connected:
@@ -70,16 +69,19 @@ def handle_temperature_sensor(connection, address):
         print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t{sensor_off}")
         rcv_msg = server_socket.recv(2048).decode(format)
         print(f"[RECEIVED]\t[{server_address}] \t{space}\t{rcv_msg}")  # sensor off message will be sent to the server after three seconds.
+        connection.close()
 
     except ConnectionResetError:
+        time.sleep(3)
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         space = " " * (len(timestamp) + 1)
-        msg = "t" + f"[{address}]" + f"{sensor_closed}[{timestamp}]"
+        msg = "t" + f"[{address}]" + f"{sensor_off}[{timestamp}]"
         message = msg.encode(format)
         server_socket.send(message)
-        print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t{sensor_closed}")  # if the connection is closed by user, it is directly send to the server.
+        print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t{sensor_off}")  # if the connection is closed by user, it is directly send to the server.
         rcv_msg = server_socket.recv(2048).decode(format)
         print(f"[RECEIVED]\t[{server_address}] \t{space}\t{rcv_msg}")
+        connection.close()
 
 
 def handle_humidity_sensor(msg, address):
@@ -144,7 +146,7 @@ def tcp_start():
 def udp_start():
     gateway_socket = udp_humidity_connection(gateway_udp_address)
     while True:
-        addr = gateway_socket.recvfrom(1024)[1] # bütün datalar önce buraya sonra başka porta yönlendir
+        addr = gateway_socket.recvfrom(1024)[1]
         thread = threading.Thread(target=listen_new_udp_port, args=(addr, ))
         thread.start()
 

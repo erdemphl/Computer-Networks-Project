@@ -29,23 +29,28 @@ def fetch_msg_timestamp(msg):
     return sensor_type, sensor_address, message, timestamp
 
 
+def employee(msg, conn, addr):
+    sensor_type, sensor_address, message, timestamp = fetch_msg_timestamp(msg)
+    space = " " * (len(timestamp) + 1)
+    if sensor_type == "t":
+        sensor_address_add = sensor_address[1: sensor_address.index("]")]
+        timestamp_add = timestamp[1: timestamp.index("]")]
+        temperature_data.append([sensor_address_add, message, timestamp_add])
+    elif sensor_type == "h":
+        sensor_address_add = sensor_address[1: sensor_address.index("]")]
+        timestamp_add = timestamp[1: timestamp.index("]")]
+        humidity_data.append([sensor_address_add, message, timestamp_add])
+    print(f"[RECEIVED]\t[{addr}]\t{timestamp}\t{sensor_address} {message}")
+    conn.send("Message Received.".encode(format))
+    print(f"[SENT]    \t[{addr}]\t{space}\tMessage Received.")
+
+
 def handle_gateway(conn, addr):
     connected = True
     while connected:
         msg = conn.recv(2048).decode(format)
-        sensor_type, sensor_address, message, timestamp = fetch_msg_timestamp(msg)
-        space = " " * (len(timestamp) + 1)
-        if sensor_type == "t":
-            sensor_address_add = sensor_address[1: sensor_address.index("]")]
-            timestamp_add = timestamp[1: timestamp.index("]")]
-            temperature_data.append([sensor_address_add, message, timestamp_add])
-        elif sensor_type == "h":
-            sensor_address_add = sensor_address[1: sensor_address.index("]")]
-            timestamp_add = timestamp[1: timestamp.index("]")]
-            humidity_data.append([sensor_address_add, message, timestamp_add])
-        print(f"[RECEIVED]\t[{addr}]\t{timestamp}\t{sensor_address} {message}")
-        conn.send("Message Received.".encode(format))
-        print(f"[SENT]    \t[{addr}]\t{space}\tMessage Received.")
+        employee_thread = threading.Thread(target=employee, args=(msg, conn, addr))
+        employee_thread.start()
     conn.close()
 
 
