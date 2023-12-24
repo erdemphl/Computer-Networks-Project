@@ -13,7 +13,7 @@
             height: 100vh;
             margin: 0;
             font-family: 'Arial', sans-serif;
-            background-image: url('images/backg.jpg'); /* Specify the correct path to your image */
+            background-image: url('images/backg.png'); /* Specify the correct path to your image */
             background-size: cover; /* Cover the entire background */
         }
 
@@ -37,11 +37,12 @@
 
 <button id="temperatureButton" onclick="redirectTo('temperature')">Temperature</button>
 <button id="humidityButton" onclick="redirectTo('humidity')">Humidity</button>
+<button id="getHumidityButton" onclick="redirectTo('gethumidity')">Get Humidity</button>
 
 <script>
     function redirectTo(page) {
         // Define the base URL
-        var baseUrl = 'http://192.168.0.17:8080/';
+        var baseUrl = 'http://localhost:8080/';
 
         // Construct the full URL based on the selected page
         var fullUrl = baseUrl + page;
