@@ -1,8 +1,10 @@
 import socket
 import threading
+import logging
+import os
+from datetime import datetime
 
-
-server_host = socket.gethostbyname(socket.gethostname())
+server_host = "localhost" # .
 server_port = 8080
 server_address = (server_host, server_port)
 format = "UTF-8"
@@ -11,12 +13,15 @@ server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.bind(server_address)
 
 gateway_port = 7070
-gateway_address = (server_host, gateway_port)
+gateway_address = (server_host, gateway_port) # .
+
 gateway_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 gateway_socket.bind(gateway_address)
 
+
 temperature_data = []
 humidity_data = []
+logger = logging.getLogger(__name__)
 
 def fetch_msg_timestamp(msg):
     index = msg.rindex("[")
@@ -39,9 +44,10 @@ def employee(msg, conn, addr):
         sensor_address_add = sensor_address[1: sensor_address.index("]")]
         timestamp_add = timestamp[1: timestamp.index("]")]
         humidity_data.append([sensor_address_add, message, timestamp_add])
-    print(f"[RECEIVED]\t[{addr}]\t{timestamp}\t{sensor_address} {message}")
+    sensor_port = sensor_address[sensor_address.index(",") + 2: -1]
+    logger.info(f"[RECEIVED]\t[('localhost', {addr[1]})]\t{timestamp}\t[('localhost', {sensor_port})] {message}")
     conn.send("Message Received.".encode(format))
-    print(f"[SENT]    \t[{addr}]\t{space}\tMessage Received.")
+    logger.info(f"[SENT]    \t[('localhost', {addr[1]})]\t{space}\tMessage Received.")
 
 
 def handle_gateway(gateway_socket):
@@ -56,9 +62,8 @@ def handle_gateway(gateway_socket):
         employee_thread.start()
     conn.close()
 
-
 def select_appropriate_data(filename):
-    last_data = "" # değişebilir
+    last_data = []  # değişebilir
     for i in range(-1, (-len(humidity_data) - 1), -1):
         if "%" in humidity_data[i][1]:
             last_data = humidity_data[i]
@@ -68,7 +73,6 @@ def select_appropriate_data(filename):
         return select[filename]
     except KeyError:
         return None
-
 
 
 def add_data_to_html_string(html_string, data):
@@ -98,19 +102,20 @@ def add_data_to_html_string(html_string, data):
     return merged_html_string.encode("UTF-8")
 
 
-
-
 def handle_client(conn, addr):
     format = "UTF-8"
     req = conn.recv(2048).decode(format)
     file_name = str(req.split()[1][1:])
-    print(str(addr) + ":\n" + req)
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    logger.info("---------------------------------------------------------------------------------")
+    logger.info("[REQUEST]\t" + str(addr) + f"\t[{timestamp}]:\n" + req)
+    logger.info("---------------------------------------------------------------------------------")
     extension = ""
     if len(file_name) == 0:
         extension = "Home.html"
-    elif file_name.endswith(".jpg"):
+    elif file_name.endswith(".png"):
         extension = ""
-    elif len(file_name) > 0 and (not file_name.endswith(".jpg")):
+    elif len(file_name) > 0 and (not file_name.endswith(".png")):
         extension = ".html"
     file_name += extension
     data = select_appropriate_data(file_name)
@@ -128,22 +133,33 @@ def handle_client(conn, addr):
         return
     final_response += response
     conn.send(final_response)
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    logger.info(f"[RESPONSE]\t" + str(addr) + f"\t[{timestamp}]")
     conn.close()
 
 
 def start():
     gateway_socket.listen()
-    print(f"[LISTENING] Server is listening on {server_host}:{gateway_port} for gateway connection")
+    logger.info(f"[LISTENING] Server is listening on {server_host}:{gateway_port} for gateway connection")
     thread = threading.Thread(target=handle_gateway, args=(gateway_socket, ))
     thread.start()
 
     server_socket.listen()
-    print(f"[LISTENING] Server is listening on {server_host}:{server_port} for website request")
+    logger.info(f"[LISTENING] Server is listening on {server_host}:{server_port} for website request")
     while True:
         conn, addr = server_socket.accept()
         thread = threading.Thread(target=handle_client, args=(conn, addr))
         thread.start()
 
+if not os.path.exists("Logs"):
+    os.makedirs("Logs")
+if not os.path.exists("Logs\\ServerLogs"):
+    os.makedirs("Logs\\ServerLogs")
+file_handler = logging.FileHandler("Logs\\ServerLogs\\Server.log", encoding='utf-8')
+logger.addHandler(file_handler)
+logger.setLevel(logging.INFO)
+console_handler = logging.StreamHandler()
+logger.addHandler(console_handler)
 
-print("[STARTING] Server is starting...")
+logger.info("[STARTING] Server is starting...")
 start()

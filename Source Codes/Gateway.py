@@ -1,13 +1,15 @@
+import logging
 import random
 import socket
 import threading
 import time
 from datetime import datetime
+import os
 
-gateway_host = socket.gethostbyname(socket.gethostname())
+gateway_host = "localhost"
 
-gateway_tcp_port = 5050
 gateway_udp_port = 4040
+gateway_tcp_port = 5050
 server_port = 7070
 
 gateway_tcp_address = (gateway_host, gateway_tcp_port)
@@ -19,6 +21,7 @@ server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 format = "UTF-8"
 
 taken_udp_ports = []
+logger = logging.getLogger(__name__)
 
 
 def try_to_connect_server(server_socket):
@@ -57,7 +60,7 @@ def fetch_msg_timestamp(msg):
 
 
 def handle_temperature_sensor(connection, address):
-    print(f"[NEW TEMPERATURE SENSOR CONNECTION] {address} connected.")
+    logger.info(f"[NEW TEMPERATURE SENSOR CONNECTION] [('localhost', {address[1]})] connected.")
     connection.settimeout(3)
     sensor_off = "TEMP SENSOR OFF"
     connected = True
@@ -68,16 +71,16 @@ def handle_temperature_sensor(connection, address):
                 raise ConnectionResetError
             sensor_type, message, timestamp = fetch_msg_timestamp(msg)
             msg = f"{msg[0]}[{address}]{msg[1:]}"
-            print(f"[RECEIVED]\t[{address}]\t{timestamp}\t{message}")
+            logger.info(f"[RECEIVED]\t[('localhost', {address[1]})]\t{timestamp}\t{message}")
             space = " " * (len(timestamp) + 1)
             try:
                 server_socket.send(msg.encode(format))
             except OSError:
-                print(f"[SENT]    \t[{server_address}] \t{timestamp}\t{message}")
+                logger.info(f"[SENT]    \t[('localhost', {server_address[1]})] \t{timestamp}\t{message}")
                 continue
-            print(f"[SENT]    \t[{server_address}] \t{timestamp}\t{message}")
+            logger.info(f"[SENT]    \t[('localhost', {server_address[1]})] \t{timestamp}\t{message}")
             rcv_msg = server_socket.recv(2048).decode(format)
-            print(f"[RECEIVED]\t[{server_address}] \t{space}\t{rcv_msg}")
+            logger.info(f"[RECEIVED]\t[('localhost', {server_address[1]})] \t{space}\t{rcv_msg}")
 
     except socket.timeout:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -87,12 +90,12 @@ def handle_temperature_sensor(connection, address):
         try:
             server_socket.send(message)
         except OSError:
-            print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t[{address}] {sensor_off}")
+            logger.info(f"[SENT]    \t[('localhost', {server_address[1]})] \t[{timestamp}]\t[('localhost', {address[1]})] {sensor_off}")
             connection.close()
             return
-        print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t[{address}] {sensor_off}")
+        logger.info(f"[SENT]    \t[('localhost', {server_address[1]})] \t[{timestamp}]\t[('localhost', {address[1]})] {sensor_off}")
         rcv_msg = server_socket.recv(2048).decode(format)
-        print(f"[RECEIVED]\t[{server_address}] \t{space}\t{rcv_msg}")  # sensor off message will be sent to the server after three seconds.
+        logger.info(f"[RECEIVED]\t[('localhost', {server_address[1]})] \t{space}\t{rcv_msg}")  # sensor off message will be sent to the server after three seconds.
         connection.close()
 
     except ConnectionResetError:
@@ -104,12 +107,12 @@ def handle_temperature_sensor(connection, address):
         try:
             server_socket.send(message)
         except OSError:
-            print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t[{address}] {sensor_off}")  # if the connection is closed by user, it is directly send to the server.
+            logger.info(f"[SENT]    \t[('localhost', {server_address[1]})] \t[{timestamp}]\t[('localhost', {address[1]})] {sensor_off}")  # if the connection is closed by user, it is directly send to the server.
             connection.close()
             return
-        print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t[{address}] {sensor_off}")  # if the connection is closed by user, it is directly send to the server.
+        logger.info(f"[SENT]    \t[('localhost', {server_address[1]})] \t[{timestamp}]\t[('localhost', {address[1]})] {sensor_off}")  # if the connection is closed by user, it is directly send to the server.
         rcv_msg = server_socket.recv(2048).decode(format)
-        print(f"[RECEIVED]\t[{server_address}] \t{space}\t{rcv_msg}")
+        logger.info(f"[RECEIVED]\t[('localhost', {server_address[1]})] \t{space}\t{rcv_msg}")
         connection.close()
 
 
@@ -117,19 +120,19 @@ def handle_humidity_sensor(msg, address):
     msg = msg.decode(format)
     sensor_type, message, timestamp = fetch_msg_timestamp(msg)
     msg = f"{msg[0]}[{address}]{msg[1:]}"
-    print(f"[RECEIVED]\t[{address}]\t{timestamp}\t{message}")
+    logger.info(f"[RECEIVED]\t[('localhost', {address[1]})]\t{timestamp}\t{message}")
     space = " " * (len(timestamp) + 1)
     try:
         server_socket.send(msg.encode(format))
     except OSError:
-        print(f"[SENT]    \t[{server_address}] \t{timestamp}\t{message}")
+        logger.info(f"[SENT]    \t[('localhost', {server_address[1]})] \t{timestamp}\t{message}")
         return
-    print(f"[SENT]    \t[{server_address}] \t{timestamp}\t{message}")
+    logger.info(f"[SENT]    \t[('localhost', {server_address[1]})] \t{timestamp}\t{message}")
     try:
         rcv_msg = server_socket.recv(2048).decode(format)
     except ConnectionResetError:
         return
-    print(f"[RECEIVED]\t[{server_address}] \t{space}\t{rcv_msg}")
+    logger.info(f"[RECEIVED]\t[('localhost', {server_address[1]})] \t{space}\t{rcv_msg}")
 
 def genereate_unique_udp_port():
     while True:
@@ -147,7 +150,7 @@ def listen_new_udp_port(addr):
     new_gateway_socket = udp_humidity_connection(new_gateway_udp_address)
     new_gateway_socket.sendto(str(new_port).encode(format), addr)
     new_gateway_socket.settimeout(7)
-    print(f"[NEW HUMIDITY SENSOR DETECTED] {addr} detected.")
+    logger.info(f"[NEW HUMIDITY SENSOR DETECTED] [('localhost', {new_gateway_udp_address[1]})] detected.")
     try:
         while True:
             msg, addr = new_gateway_socket.recvfrom(1024)
@@ -167,12 +170,12 @@ def send_off_to_server(addr, new_gateway_socket):
     try:
         server_socket.send(send_msg.encode(format))
     except OSError:
-        print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t[{addr}] {msg}")
+        logger.info(f"[SENT]    \t[('localhost', {server_address[1]})] \t[{timestamp}]\t[('localhost', {addr[1]})] {msg}")
         new_gateway_socket.close()
         return
-    print(f"[SENT]    \t[{server_address}] \t[{timestamp}]\t[{addr}] {msg}")
+    logger.info(f"[SENT]    \t[('localhost', {server_address[1]})] \t[{timestamp}]\t[('localhost', {addr[1]})] {msg}")
     rcv_msg = server_socket.recv(2048).decode(format)
-    print(f"[RECEIVED]\t[{server_address}] \t{space}\t{rcv_msg}")
+    logger.info(f"[RECEIVED]\t[('localhost', {server_address[1]})] \t{space}\t{rcv_msg}")
 
 
 def tcp_start():
@@ -192,17 +195,25 @@ def udp_start():
         thread.start()
 
 
-
 def start():
     server_connection()
     thread_tcp_sensor = threading.Thread(target=tcp_start)
     thread_udp_sensor = threading.Thread(target=udp_start)
     thread_tcp_sensor.start()
-    print(f"[LISTENING] Gateway is listening on {gateway_host}:{gateway_tcp_port} for TCP")
+    logger.info(f"[LISTENING] Gateway is listening on {gateway_host}:{gateway_tcp_port} for TCP")
     thread_udp_sensor.start()
-    print(f"[LISTENING] Gateway is listening on {gateway_host}:{gateway_udp_port} for UDP")
+    logger.info(f"[LISTENING] Gateway is listening on {gateway_host}:{gateway_udp_port} for UDP")
 
 
+if not os.path.exists("Logs"):
+    os.makedirs("Logs")
+if not os.path.exists("Logs\\GatewayLogs"):
+    os.makedirs("Logs\\GatewayLogs")
+file_handler = logging.FileHandler('Logs\\GatewayLogs\\Gateway.log', encoding='utf-8')
+logger.addHandler(file_handler)
+logger.setLevel(logging.INFO)
+console_handler = logging.StreamHandler()
+logger.addHandler(console_handler)
 
-print("[STARTING] Gateway is starting...")
+logger.info("[STARTING] Gateway is starting...")
 start()

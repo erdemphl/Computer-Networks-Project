@@ -1,8 +1,11 @@
+import logging
 import socket
 import random
 import time
+import os
 from datetime import datetime
 
+logger = logging.getLogger(__name__)
 
 class TemperatureSensor:
 
@@ -11,15 +14,30 @@ class TemperatureSensor:
         self.produce_random_temperature()
 
     def connect_to_gateway(self):
-        gateway_host = socket.gethostbyname(socket.gethostname())
+        gateway_host = "localhost"
         gateway_port = 5050
         gateway_address = (gateway_host, gateway_port)
 
         sensor_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        if not os.path.exists("Logs"):
+            os.makedirs("Logs")
+        if not os.path.exists("Logs\\TemperatureSensorLogs"):
+            os.makedirs("Logs\\TemperatureSensorLogs")
+
         try:
             sensor_socket.connect(gateway_address)
+            file_handler = logging.FileHandler(f'Logs\\TemperatureSensorLogs\\({gateway_host}, {sensor_socket.getsockname()[1]}).log', encoding='utf-8', mode="w")
+            logger.addHandler(file_handler)
+            logger.setLevel(logging.INFO)
+            console_handler = logging.StreamHandler()
+            logger.addHandler(console_handler)
         except ConnectionRefusedError:
-            print("GATEWAY IS OFF")
+            file_handler = logging.FileHandler(f"Logs\\TemperatureSensorLogs\\('{gateway_host}', '{sensor_socket.getsockname()[1]}')", encoding='utf-8', mode="w")
+            logger.addHandler(file_handler)
+            logger.setLevel(logging.INFO)
+            console_handler = logging.StreamHandler()
+            logger.addHandler(console_handler)
+            logger.info("GATEWAY IS OFF")
             exit(0)
         return sensor_socket
 
@@ -34,9 +52,9 @@ class TemperatureSensor:
         try:
             sensor_socket.send(message)
         except ConnectionResetError:
-            pass
-        print(f"[SENT]\t[{timestamp}]\t{temperature}")
-
+            logger.info(f"{temperature}")
+            return
+        logger.info(f"[SENT]\t[{timestamp}]\t{temperature}")
 
     def run(self):
         sensor_socket = self.connect_to_gateway()
