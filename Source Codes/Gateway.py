@@ -210,19 +210,30 @@ def fetch_gethumidity_msg(response):
     timestamp = response[middle + 1:]
     return current_humidity, timestamp
 
-def gethumidity_process(msg, gethumidity_socket, server_gethumidity_scoket):
+def gethumidity_process(msg, gethumidity_socket, server_gethumidity_socket, addr):
     responses = []
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if msg == "gethumidity":
         for addr in active_humidity:
             gethumidity_socket.sendto(msg.encode(format), addr)
-            response, address = gethumidity_socket.recvfrom(1024)
-            fetched_msg = fetch_gethumidity_msg(response.decode(format))
-            responses.append([address, fetched_msg[0], fetched_msg[1]])
+            logger.info(f"[SENT]    \t[('localhost', {addr[1]})] \t[{timestamp}]\tGET HUMIDITY REQUEST")
+            try:
+                response, address = gethumidity_socket.recvfrom(1024)
+                fetched_msg = fetch_gethumidity_msg(response.decode(format))
+                responses.append([address, fetched_msg[0], fetched_msg[1]])
+                logger.info(f"[RECEIVED]\t[('localhost', {address[1]})] \t[{fetched_msg[1]}]\tGET HUMIDITY RESPONSE: {fetched_msg[0]}")
+            except ConnectionResetError:
+                if len(active_humidity) == 1:
+                    server_gethumidity_socket.send("None".encode(format))
+                continue
     response_string = ""
     for response in responses:
         response_string += f"{response[0]},{response[1]},{response[2]}|"
     response_string += f"{len(responses)}"
-    server_gethumidity_scoket.send(response_string.encode(format))
+    server_gethumidity_socket.send(response_string.encode(format))
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    logger.info(f"[SENT]    \t[('localhost', {addr[1]})] \t[{timestamp}]\tALL GET HUMIDITY RESPONSE SENT TO THE SERVER")
+
 
 
 def listen_server_gethumidity():
@@ -233,10 +244,12 @@ def listen_server_gethumidity():
     while True:
         try:
             msg = connection.recv(1024).decode(format)
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            logger.info(f"[RECEIVED]\t[('localhost', {address[1]})] \t[{timestamp}]\tGET HUMIDITY REQUEST FROM THE SERVER")
         except:
             continue
         if msg == "gethumidity":
-            thread = threading.Thread(target=gethumidity_process, args=(msg, gethumidity_socket, connection))
+            thread = threading.Thread(target=gethumidity_process, args=(msg, gethumidity_socket, connection, address))
             thread.start()
 
 def start():

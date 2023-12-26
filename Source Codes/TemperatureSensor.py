@@ -52,9 +52,9 @@ class TemperatureSensor:
         try:
             sensor_socket.send(message)
         except ConnectionResetError:
-            logger.info(f"{temperature}")
+            logger.info(f"[NOT SENT]\t[{timestamp}]\t{temperature}")
             return
-        logger.info(f"[SENT]\t[{timestamp}]\t{temperature}")
+        logger.info(f"[SENT]    \t[{timestamp}]\t{temperature}")
 
     def run(self):
         sensor_socket = self.connect_to_gateway()

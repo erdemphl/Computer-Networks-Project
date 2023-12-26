@@ -23,15 +23,15 @@ class HumiditySensor:
         self.current_humidity = str(random.randint(40, 90)) + "%"
 
     def send_humidity_to_gateway(self, sensor_socket, gateway_address, humidity):
-        logger.info(humidity)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         if int(humidity[:-1]) <= 80:
+            logger.info(f"[NOT SENT]\t[{timestamp}]\t{humidity}")
             return
         format = "UTF-8"
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         message = "h" + humidity + f"[{timestamp}]"
         message = message.encode(format)
         sensor_socket.sendto(message, gateway_address)
-        logger.info(f"[SENT]\t[{timestamp}]\t{humidity}")
+        logger.info(f"[SENT]    \t[{timestamp}]\t{humidity}")
 
 
     def request_port(self):
@@ -65,7 +65,7 @@ class HumiditySensor:
             message = "h" + f"{alive}[{timestamp}]"
             message = message.encode(format)
             sensor_socket.sendto(message, gateway_address)
-            logger.info(f"[SENT]\t[{timestamp}]\t{alive}")
+            logger.info(f"[SENT]    \t[{timestamp}]\t{alive}")
             time.sleep(3)
 
 
@@ -73,11 +73,13 @@ class HumiditySensor:
         gethumidity_addr = ('localhost', 3030)
         while True:
             msg, addr = gethumidity_socket.recvfrom(1024)
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            logger.info(f"[RECEIVED]\t[{timestamp}]\tGET HUMIDITY REQUEST")
             if msg.decode("UTF-8") == "gethumidity":
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 response = f"{self.current_humidity},{timestamp}"
                 gethumidity_socket.sendto(response.encode("UTF-8"), gethumidity_addr)
-                logger.info(f"[SENT]\t[{timestamp}]\tGET HUMIDITY RESPONSE: {response[:response.index(',')]}")
+                logger.info(f"[SENT]    \t[{timestamp}]\tGET HUMIDITY RESPONSE: {response[:response.index(',')]}")
 
 
     def run(self):

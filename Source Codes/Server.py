@@ -22,7 +22,7 @@ gateway_gethumidity_port = 6060
 gateway_gethumidity_address = (server_host, gateway_gethumidity_port)
 gateway_gethumidity_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-
+last_data = []
 temperature_data = []
 humidity_data = []
 logger = logging.getLogger(__name__)
@@ -94,7 +94,9 @@ def gethumidity_process(filename):
     if filename != "gethumidity.html":
         return []
     gateway_gethumidity_socket.send("gethumidity".encode(format))
-    response = gateway_gethumidity_socket.recv(2048).decode(format)
+    response = gateway_gethumidity_socket.recv(4096).decode(format)
+    if response == "None":
+        return []
     return fetch_gethumidity_response(response)
 
 
@@ -136,6 +138,7 @@ def add_data_to_html_string(html_string, data):
 
 
 def handle_client(conn, addr):
+    page_names = ["Home", "temperature", "humidity", "gethumidity", "Home.html", "temperature.html", "humidity.html", "gethumidity.html", ""]
     format = "UTF-8"
     req = conn.recv(2048).decode(format)
     file_name = ""
@@ -144,9 +147,10 @@ def handle_client(conn, addr):
     except:
         pass
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    logger.info("---------------------------------------------------------------------------------")
-    logger.info("[REQUEST]\t" + str(addr) + f"\t[{timestamp}]:\n" + req)
-    logger.info("---------------------------------------------------------------------------------")
+    if file_name in page_names:
+        logger.info("---------------------------------------------------------------------------------")
+        logger.info("[REQUEST]\t" + str(addr) + f"\t[{timestamp}]:\n" + req)
+        logger.info("---------------------------------------------------------------------------------")
     extension = ""
     if len(file_name) == 0:
         extension = "Home.html"
@@ -171,7 +175,9 @@ def handle_client(conn, addr):
     final_response += response
     conn.send(final_response)
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    logger.info(f"[RESPONSE]\t" + str(addr) + f"\t[{timestamp}]")
+    if file_name in page_names:
+        logger.info(f"[RESPONSE]\t" + str(addr) + f"\t[{timestamp}]")
+        logger.info("---------------------------------------------------------------------------------")
     conn.close()
 
 
