@@ -4,29 +4,40 @@ import logging
 import os
 from datetime import datetime
 
-server_host = "localhost" # .
+# Server configuration
+server_host = "localhost" 
 server_port = 8080
+# Tuple for binding the server
 server_address = (server_host, server_port)
+# Encoding format for messages
 format = "UTF-8"
 
+# Creating a socket for the server
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+ # Binding the server socket to the address
 server_socket.bind(server_address)
 
+# Gateway configuration for a different service
 gateway_port = 7070
 gateway_address = (server_host, gateway_port) # .
 
 gateway_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# Binding the gateway socket
 gateway_socket.bind(gateway_address)
 
 gateway_gethumidity_port = 6060
 gateway_gethumidity_address = (server_host, gateway_gethumidity_port)
 gateway_gethumidity_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+# Lists for storing temperature and humidity data
 last_data = []
 temperature_data = []
 humidity_data = []
+
+# Logger setup for debugging and log management
 logger = logging.getLogger(__name__)
 
+# Extracts sensor type, address, message, and timestamp from the received message
 def fetch_msg_timestamp(msg):
     index = msg.rindex("[")
     sensor_index_end = msg.index("]")
@@ -36,7 +47,7 @@ def fetch_msg_timestamp(msg):
     timestamp = msg[index:]
     return sensor_type, sensor_address, message, timestamp
 
-
+# Processes the message received from a sensor and logs the information
 def employee(msg, conn, addr):
     sensor_type, sensor_address, message, timestamp = fetch_msg_timestamp(msg)
     space = " " * (len(timestamp) + 1)
@@ -53,7 +64,7 @@ def employee(msg, conn, addr):
     conn.send("Message Received.".encode(format))
     logger.info(f"[SENT]    \t[('localhost', {addr[1]})]\t{space}\tMessage Received.")
 
-
+# Handles incoming connections and messages on the gateway socket
 def handle_gateway(gateway_socket):
     conn, addr = gateway_socket.accept()
     gateway_gethumidity_socket.connect(gateway_gethumidity_address)
@@ -67,7 +78,7 @@ def handle_gateway(gateway_socket):
         employee_thread.start()
     conn.close()
 
-
+# Parses the response string received from the humidity service
 def fetch_gethumidity_response(response_string):
     response = []
     start = 0
@@ -89,7 +100,7 @@ def fetch_gethumidity_response(response_string):
             break
     return response
 
-
+# Initiates the process to get humidity data if the requested file is 'gethumidity.html'
 def gethumidity_process(filename):
     if filename != "gethumidity.html":
         return []
@@ -99,7 +110,7 @@ def gethumidity_process(filename):
         return []
     return fetch_gethumidity_response(response)
 
-
+# Selects the appropriate data (temperature, humidity, etc.) based on the requested file
 def select_appropriate_data(filename):
     last_data = gethumidity_process(filename)
 
@@ -109,7 +120,7 @@ def select_appropriate_data(filename):
     except KeyError:
         return None
 
-
+# Adds sensor data to the HTML string for dynamic web page generation
 def add_data_to_html_string(html_string, data):
     if data is None:
         return html_string
@@ -136,7 +147,7 @@ def add_data_to_html_string(html_string, data):
 
     return merged_html_string.encode("UTF-8")
 
-
+# Handles incoming client connections and serves requested web pages
 def handle_client(conn, addr):
     page_names = ["Home", "temperature", "humidity", "gethumidity", "Home.html", "temperature.html", "humidity.html", "gethumidity.html", ""]
     format = "UTF-8"
@@ -180,7 +191,7 @@ def handle_client(conn, addr):
         logger.info("---------------------------------------------------------------------------------")
     conn.close()
 
-
+# Starts the server and listens for incoming connections
 def start():
     gateway_socket.listen()
     logger.info(f"[LISTENING] Server is listening on {server_host}:{gateway_port} for gateway connection")
@@ -194,15 +205,18 @@ def start():
         thread = threading.Thread(target=handle_client, args=(conn, addr))
         thread.start()
 
+# Creating necessary directories for logging
 if not os.path.exists("Logs"):
     os.makedirs("Logs")
 if not os.path.exists("Logs\\ServerLogs"):
     os.makedirs("Logs\\ServerLogs")
+# Logger configuration
 file_handler = logging.FileHandler("Logs\\ServerLogs\\Server.log", encoding='utf-8')
 logger.addHandler(file_handler)
 logger.setLevel(logging.INFO)
 console_handler = logging.StreamHandler()
 logger.addHandler(console_handler)
 
+# Starting the server
 logger.info("[STARTING] Server is starting...")
 start()
