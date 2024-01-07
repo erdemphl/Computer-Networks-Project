@@ -25,14 +25,10 @@ gateway_gethumidity_socket.bind(gateway_gethumidity_address)
 
 format = "UTF-8"
 
-
-
-taken_udp_ports = []
-active_humidity = []
 logger = logging.getLogger(__name__)
 
 
-def try_to_connect_server(server_socket):
+def try_to_connect_server(server_socket): # if the server is closed, this waits for it so that it starts.
     while True:
         try:
             server_socket.connect(server_address)
@@ -43,23 +39,24 @@ def try_to_connect_server(server_socket):
 def server_connection():
     try:
         server_socket.connect(server_address)
-    except ConnectionRefusedError:
+    except ConnectionRefusedError: # if server is close, wait for it.
         listen_server_thread = threading.Thread(target=try_to_connect_server, args=(server_socket, ))
         listen_server_thread.start()
 
 
-def tcp_temperature_connection():
+def tcp_temperature_connection(): # tcp connection for temperature sensor
     gateway_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     gateway_socket.bind(gateway_tcp_address)
     return gateway_socket
 
 
-def udp_humidity_connection(gateway_udp_address):
+def udp_humidity_connection(gateway_udp_address): # udp binding for humidity sensor
     gateway_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     gateway_socket.bind(gateway_udp_address)
     return gateway_socket
 
-def fetch_msg_timestamp(msg):
+def fetch_msg_timestamp(msg): # fetch the recieved data from the sensors, timestapmp data etc.
+    # msg format = "sensor_type, data, timestamp", h or t for type
     index = msg.index("[")
     sensor_type = msg[0]
     message = msg[1:index]
@@ -67,9 +64,9 @@ def fetch_msg_timestamp(msg):
     return sensor_type, message, timestamp
 
 
-def handle_temperature_sensor(connection, address):
+def handle_temperature_sensor(connection, address): # handle the temperature sensor
     logger.info(f"[NEW TEMPERATURE SENSOR CONNECTION] [('localhost', {address[1]})] connected.")
-    connection.settimeout(3)
+    connection.settimeout(3) # if the dont come a data from the sensor for 3 seconds, temp sensor off message will be sent server.
     sensor_off = "TEMP SENSOR OFF"
     connected = True
     try:
@@ -141,6 +138,11 @@ def handle_humidity_sensor(msg, address):
     except ConnectionResetError:
         return
     logger.info(f"[RECEIVED]\t[('localhost', {server_address[1]})] \t{space}\t{rcv_msg}")
+
+taken_udp_ports = []
+active_humidity = []
+
+
 
 def genereate_unique_udp_port():
     while True:
